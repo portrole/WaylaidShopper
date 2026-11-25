@@ -2,13 +2,11 @@
 -- Plan = the shopping list's crates (or, without a list, the selection). Counts only bags 0-4. Bag contents are shared
 -- out over the fills: each fill needs one empty crate and one complete bundle; the planned bundle is used when the bags
 -- cover it, otherwise any other bundle of that crate the bags fully cover (it switches). Read-only.
--- Runs by itself (setting "alert", default on) when you close the AH, bank or mailbox and when you leave a rested area
--- (city / inn), and warns on screen if anything is missing.
+-- Runs only when you ask: the Bags check button or /wl check.
 local ADDON, WS = ...
 local K = {}
 WS.Check = K
 
-K.ALERT_GAP = 10       -- seconds between automatic alerts
 
 local function BagCount(id)
     local f = (C_Item and C_Item.GetItemCount) or GetItemCount
@@ -158,56 +156,11 @@ function K.Lines(res)
     return lines, ok
 end
 
-local function Alert(msg)
-    if type(RaidNotice_AddMessage) == "function" and RaidWarningFrame then
-        local info = (ChatTypeInfo and ChatTypeInfo["RAID_WARNING"]) or { r = 1, g = 0.3, b = 0.1 }
-        pcall(RaidNotice_AddMessage, RaidWarningFrame, msg, info)
-    elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
-        pcall(UIErrorsFrame.AddMessage, UIErrorsFrame, msg, 1, 0.3, 0.1)
-    end
-    if type(PlaySound) == "function" then
-        local kit = (SOUNDKIT and SOUNDKIT.RAID_WARNING) or 8959
-        pcall(PlaySound, kit)
-    end
-end
-
--- manual: print every line (and open the text window). auto: only when something is missing (plus on-screen alert).
-function K.Run(manual, why)
+-- prints the summary and one line per crate
+function K.Run()
     if not WS.db then return end
     local res = K.Evaluate()
     K.last = res
-    local lines, ok = K.Lines(res)
-    if manual then
-        for _, l in ipairs(lines) do WS.Print(l) end
-        return res
-    end
-    if res.fills == 0 or ok then return res end
-    local now = (GetTime and GetTime()) or 0
-    if K._lastAlert and now - K._lastAlert < K.ALERT_GAP then return res end
-    K._lastAlert = now
-    for _, l in ipairs(lines) do WS.Print(l) end
-    Alert(string.format("Waylaid Shopper: crate items missing from your bags%s! (/wl check)", why and (" - " .. why) or ""))
+    for _, l in ipairs((K.Lines(res))) do WS.Print(l) end
     return res
 end
-
-local function Later(fn)
-    if C_Timer and type(C_Timer.After) == "function" then pcall(C_Timer.After, 1, fn) else fn() end
-end
-
-local ev = CreateFrame("Frame")
-for _, e in ipairs({ "AUCTION_HOUSE_CLOSED", "BANKFRAME_CLOSED", "MAIL_CLOSED", "PLAYER_UPDATE_RESTING" }) do pcall(ev.RegisterEvent, ev, e) end
-K._wasResting = nil
-ev:SetScript("OnEvent", function(_, event)
-    if not (WS.db and WS.db.settings.alert) then return end
-    if event == "PLAYER_UPDATE_RESTING" then
-        local ok, r = pcall(IsResting)
-        local resting = ok and r and true or false
-        local left = (K._wasResting ~= false) and not resting      -- was resting (or unknown), now not
-        K._wasResting = resting
-        if left then Later(function() K.Run(false, "you left a rested area") end) end
-        return
-    end
-    local why = (event == "AUCTION_HOUSE_CLOSED" and "AH closed") or (event == "BANKFRAME_CLOSED" and "bank closed") or "mailbox closed"
-    Later(function() K.Run(false, why) end)
-end)
-K._events = ev

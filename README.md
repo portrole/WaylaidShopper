@@ -36,10 +36,13 @@ an estimate (20 / 40) until confirmed.
    - It never buys above the max unit price or a price that would push a crate over your per-Favor limit, never more than the list still needs, and never past the budget.
      Your own auctions are skipped.
    You can also use **Auctionator list** (it writes a shopping list named "Waylaid Shopper") or **Copy text**.
-6. **Bags check** (button or `/wl check`) before you leave town: for every planned fill, it checks for an empty crate and
+6. **Scan crates** at the AH (Crates tab) before choosing: the **AH** column then shows how many of each empty crate are
+   listed (? = not scanned, grey = older than 30 min). Planning never counts on more crates than are listed and prices each
+   extra one from the real listings. If Buy Next finds fewer than needed, click **Replan**.
+7. **Bags check** (button or `/wl check`) before you leave town: for every planned fill, it checks for an empty crate and
    one complete bundle in your **bags**. It lists Ready/Missing per crate with the exact amounts and says what to
-   withdraw from the bank. It also runs by itself when you close the AH, bank or mailbox and when you leave a city or
-   inn, and shows a raid-warning alert if anything is missing (`/wl alert off` to stop that). AH purchases arrive by mail.
+   withdraw from the bank. It runs only when you click it or type
+   `/wl check`. AH purchases arrive by mail.
 
 ## Commands
 | Command | What it does |
@@ -49,9 +52,10 @@ an estimate (20 / 40) until confirmed.
 | `/wl best <N>` | select the N best-value crates (lowest cost per Favor) |
 | `/wl fill` | best-value fills until the budget is used (same crate more than once allowed) |
 | `/wl fill [money]` | set the budget (optional, e.g. `10g`) and select best-value fills until it is used; says why if nothing fits |
+| `/wl scancrates [all]` | at the AH: search the empty crates and record how many are listed, so plans never count on more crates than are for sale |
+| `/wl replan` | rebuild the list with what the AH has (after Buy Next found fewer than needed); keeps what you bought and spent |
 | `/wl buycrates on\|off` | add the empty crates you need (and do not hold) to the list, priced into cost per Favor (default on) |
 | `/wl check` | Bags check: are the empty crates and bundles for every planned fill in your bags? Tells you what to withdraw from the bank |
-| `/wl alert on\|off` | run the Bags check by itself on closing the AH / bank / mailbox and on leaving a city or inn, alert if missing (default on) |
 | `/wl maxrepeat <N>` | max fills of the same crate for Best value / Fill budget (default 5; Held crates = what you hold) |
 | `/wl maxper <money\|off>` | max cost per Merchant's Favor, e.g. `/wl maxper 50s` |
 | `/wl hideover on\|off` | hide crates over that limit (else shown in red) |

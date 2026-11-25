@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.2.5
+
+_2026-11-25_
+
+- The add-on now knows how many empty crates are on the AH. Auctionator keeps one price per item, not the quantity.
+  - New **Scan crates** button (Crates tab, at the AH) or `/wl scancrates`. It searches each relevant empty crate one at
+    a time, waiting for the AH throttle: the crates on your list, the selected ones and every crate that passes the
+    filters (Shift-click or `/wl scancrates all` for all 30). It saves how many are listed and their prices, with the
+    time. Buy Next searches record the same.
+  - Best value, Fill budget, Cheapest and Build list never plan more crates of a type than you hold plus what is listed.
+    Each extra crate is priced from the real listings (2nd cheapest, 3rd...), and the fills that do not fit go to the
+    next best value. A crate with none listed (and none held) shows "none on AH" and is not picked.
+  - Materials: a complete listing snapshot from a Buy Next search also caps that material, so the bundle can switch.
+  - New **AH** column on the Crates tab, plus AH counts on the list's crate rows and in the tooltip (cheapest price and
+    age). "?" means not scanned; grey means older than 30 minutes. Old data is still used but flagged, in chat and in the
+    list warnings. Data older than 6 hours is ignored, so the add-on works as before ("qty unknown").
+  - Build list says which crates had fewer listed than selected ("only 1 listed; 4 fill(s) left out").
+- When Buy Next finds fewer than the list needs (or none), it saves the new count and says "only 1 listed (need 5):
+  Replan?". The new **Replan** button (or `/wl replan`) rebuilds the list with what can be bought.
+  - If the list came from Best value, Fill budget or Cheapest, that pick runs again with the cap, so the money goes to the
+    next best fills.
+  - What you already bought this run counts as yours, even while it is still in the mailbox, and the gold spent stays
+    on the budget.
+- Bought listings are taken off the saved counts right away.
+- The Bags check now runs only when you click Bags check or type `/wl check`. It no longer runs by itself when you close
+  the AH, bank or mailbox or leave a rested area, and there is no on-screen alert or sound. `/wl alert` is gone (typing it
+  just says so).
+
 ## v0.2.4
 
 _2026-11-25_

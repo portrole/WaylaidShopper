@@ -60,6 +60,8 @@ function B.Reset()
 end
 
 function B.IsAHOpen() return ahOpen end
+function B.ClearShort() B.short = nil end
+function B.ClearDepth() for k in pairs(depth) do depth[k] = nil end end
 function B.Current() return cur end
 
 -- AH throttle: true when a query may be sent now
@@ -86,7 +88,25 @@ local function NextItem()
 end
 B.NextItem = NextItem
 
+-- take bought units off the recorded listings (cheapest first) so planning sees what is left
+local function TakeListed(id, qty)
+    local function take(rows)
+        local left = qty
+        for i = 1, #rows do
+            if left <= 0 then break end
+            local s = math.min(rows[i].qty, left)
+            rows[i].qty = rows[i].qty - s; left = left - s
+        end
+        for i = #rows, 1, -1 do if rows[i].qty <= 0 then table.remove(rows, i) end end
+    end
+    if depth[id] then take(depth[id].rows) end
+    local rec = WS.db.avail and WS.db.avail[id]
+    if rec and rec.rows then take(rec.rows); rec.qty = math.max(0, (rec.qty or 0) - qty) end
+end
+B.TakeListed = TakeListed
+
 local function Record(id, qty, total)
+    TakeListed(id, qty)
     local run = WS.db.run
     run.bought[id] = (run.bought[id] or 0) + qty
     run.spent = (run.spent or 0) + total
@@ -109,6 +129,10 @@ local function NumItem(key) local f = F("GetNumItemSearchResults"); if not f the
 
 local function NoneListed(id, why)
     none[id] = Now()
+    depth[id] = nil
+    WS.RecordAvail(id, {}, true)
+    local need = WS.Remaining(id)
+    if need > 0 then B.short = { id = id, listed = 0, need = need }; why = why .. " Replan to rebuild the list without it." end
     cur = nil
     local nxt = NextItem()
     Set("idle", "|cffffd100" .. why .. "|r" .. (nxt and (" Click Search for " .. Name(nxt) .. ".") or " Nothing else to buy right now."))
@@ -198,33 +222,45 @@ local function PlanItem()
         Money(cap), why == "favor" and " by Favor limit" or ""))
 end
 
--- snapshot of the listings (cheapest first, your own auctions left out) for pricing repeat fills
-local function Snapshot(kind)
-    local rows = {}
+-- snapshot of the listings (cheapest first, your own auctions left out) for pricing repeat fills; also saved as the
+-- item's AH availability (WS.RecordAvail). Returns the total quantity listed.
+local function Snapshot(kind, id, key)
+    id, key = id or cur.id, key or cur.key
+    local rows, full = {}, true
     if kind == "commodity" then
         local get = F("GetCommoditySearchResultInfo")
         if not get then return end
-        for i = 1, NumCommodity(cur.id) do
-            local ok, r = pcall(get, cur.id, i)
+        for i = 1, NumCommodity(id) do
+            local ok, r = pcall(get, id, i)
             if ok and type(r) == "table" and tonumber(r.unitPrice) then
                 local q = (tonumber(r.quantity) or 0) - (tonumber(r.numOwnerItems) or 0)
                 if q > 0 then rows[#rows + 1] = { unit = tonumber(r.unitPrice), qty = q } end
             end
         end
+        local has = F("HasFullCommoditySearchResults")
+        if has then local ok, r = pcall(has, id); if ok and r == false then full = false end end
     else
         local get = F("GetItemSearchResultInfo")
         if not get then return end
-        for i = 1, NumItem(cur.key) do
-            local ok, r = pcall(get, cur.key, i)
-            if ok and type(r) == "table" and tonumber(r.buyoutAmount) and tonumber(r.buyoutAmount) > 0 and not r.containsOwnerItem then
+        for i = 1, NumItem(key) do
+            local ok, r = pcall(get, key, i)
+            if ok and type(r) == "table" and tonumber(r.buyoutAmount) and tonumber(r.buyoutAmount) > 0 and not r.containsOwnerItem
+                and not boughtAuctions[r.auctionID] then
                 local q = math.max(1, tonumber(r.quantity) or 1)
                 rows[#rows + 1] = { unit = tonumber(r.buyoutAmount) / q, qty = q }
             end
         end
+        local has = F("HasFullItemSearchResults")
+        if has then local ok, r = pcall(has, key); if ok and r == false then full = false end end
     end
     table.sort(rows, function(a, b) return a.unit < b.unit end)
-    depth[cur.id] = { t = Now(), rows = rows }
+    depth[id] = { t = Now(), rows = rows }
+    WS.RecordAvail(id, rows, full)
+    local n = 0
+    for _, r in ipairs(rows) do n = n + r.qty end
+    return n
 end
+B.Snapshot = Snapshot
 
 -- listings seen for an item in the last DEPTH_TTL seconds (nil when none / too old)
 function B.Depth(id)
@@ -237,8 +273,17 @@ end
 local function OnResults(kind)
     if not cur or B.state ~= "searching" then return end
     searched[cur.id] = Now()
-    pcall(Snapshot, kind)
+    local ok, listed = pcall(Snapshot, kind)
+    local id, need = cur.id, WS.Remaining(cur.id)
+    if ok and listed and listed < need then
+        B.short = { id = id, listed = listed, need = need }
+        WS.Print(string.format("|cffffd100only %d %s listed on the AH (the list needs %d).|r Click Replan to rebuild the list with what can be bought.", listed, Name(id), need))
+    elseif B.short and B.short.id == id then B.short = nil end
     if kind == "commodity" then PlanCommodity() else PlanItem() end
+    if B.short and B.short.id == id and B.status and not B.status:find("Replan", 1, true) then
+        B.status = B.status .. string.format(" |cffffd100Only %d listed (need %d): Replan?|r", B.short.listed, B.short.need)
+        Refresh()
+    end
 end
 
 -- results already on hand for this item (fresh enough to plan without a new query)?
@@ -338,6 +383,7 @@ local function Waited() return math.floor(Now() - waitStart) end
 
 -- the Buy Next button / "/wl buy"
 function B.Click()
+    if B.scan then B.status = string.format("Scanning crates %d/%d... (Buy Next waits for the scan)", B.scan.i, #B.scan.queue); Refresh() return end
     if not WS.db.list then return Set("idle", "Build a shopping list first (Crates tab -> Build list).") end
     if B.state == "idle" then Search()
     elseif B.state == "ready" and cur then StartPurchase()
@@ -361,6 +407,7 @@ end
 
 -- label for the button
 function B.ButtonText()
+    if B.scan then return string.format("Scanning %d/%d", B.scan.i, #B.scan.queue) end
     if B.state == "ready" and cur then
         if cur.isCommodity then return "Get quote: " .. cur.qty .. "x" end
         return "Buy " .. cur.qty .. "x " .. WS.Prices.Format(cur.buyout)
@@ -427,6 +474,119 @@ function B.Tick(force)
 end
 
 ------------------------------------------------------------------------
+-- Scan crates: one search per empty crate (behind the AH throttle) to record how many are listed and at what prices.
+-- Auctionator keeps one price per item, not the quantity, so this is what caps crate purchases to what is for sale.
+------------------------------------------------------------------------
+B.SCAN_EMPTY = 2.5             -- seconds after which a complete answer with no rows means "none listed"
+local function ScanIDs(all)
+    local ids, seen = {}, {}
+    local function add(id) if id and not seen[id] then seen[id] = true; ids[#ids + 1] = id end end
+    local L = WS.db.list
+    if L then for _, id in ipairs(L.order) do if L.items[id] and L.items[id].isCrate then add(id) end end end
+    for _, c in ipairs(WS.Crates or {}) do if (WS.db.sel[c.id] or 0) > 0 then add(c.id) end end
+    for _, c in ipairs(WS.Crates or {}) do if all or WS.PassesFilter(c) then add(c.id) end end
+    return ids
+end
+B.ScanIDs = ScanIDs
+
+local function ScanFinish(msg)
+    local s = B.scan
+    B.scan = nil
+    if s then
+        local listed, zero, unknown = 0, 0, 0
+        for _, id in ipairs(s.queue) do
+            local r = WS.Avail(id)
+            if s.done[id] == "ok" and r then if (r.qty or 0) > 0 then listed = listed + 1 else zero = zero + 1 end else unknown = unknown + 1 end
+        end
+        WS.Print(msg or string.format("Scan crates done: %d crate type(s) listed, %d none listed%s.", listed, zero,
+            unknown > 0 and (", " .. unknown .. " no answer (scan again)") or ""))
+    end
+    Refresh()
+end
+
+local function ScanSend()
+    local s = B.scan
+    local send = F("SendSearchQuery")
+    local ok = send and pcall(send, s.key, { { sortOrder = SORT_PRICE, reverseSort = false } }, true)
+    if not ok then s.done[s.id] = "fail"; s.state = "next"; return end
+    s.state, s.sent = "sent", Now()
+end
+
+local function ScanNext()
+    local s = B.scan
+    if not s then return end
+    s.i = s.i + 1
+    local id = s.queue[s.i]
+    if not id then return ScanFinish() end
+    local mk = F("MakeItemKey")
+    local ok, key = pcall(mk, id)
+    if not ok or type(key) ~= "table" then s.done[id] = "fail"; return ScanNext() end
+    s.id, s.key = id, key
+    B.status = string.format("Scanning crates %d/%d: %s...", s.i, #s.queue, CrateName(id))
+    if B.ThrottleReady() then ScanSend() else s.state, s.sent = "queued", Now() end
+    Refresh()
+end
+
+local function ScanGot(kind)
+    local s = B.scan
+    if not s or s.state ~= "sent" then return end
+    pcall(Snapshot, kind, s.id, s.key)
+    searched[s.id] = Now()
+    s.done[s.id] = "ok"
+    ScanNext()
+end
+
+-- ids: list of crate item IDs (default: the list's crates, the selection and every crate passing the filters)
+function B.ScanCrates(all)
+    if not ahOpen then WS.Print("Scan crates: open the Auction House first."); return false end
+    if B.scan then WS.Print("Scan crates is already running."); return false end
+    if not (F("SendSearchQuery") and F("MakeItemKey")) then WS.Print("Scan crates: this client has no C_AuctionHouse search API."); return false end
+    if B.state ~= "idle" and B.state ~= "ready" then WS.Print("Scan crates: finish the current purchase first."); return false end
+    local ids = ScanIDs(all)
+    if #ids == 0 then WS.Print("Scan crates: no crates to scan."); return false end
+    if B.state == "ready" then cur = nil; B.state = "idle" end
+    B.scan = { queue = ids, i = 0, done = {} }
+    WS.Print(string.format("Scan crates: searching %d empty crate type(s), one at a time...", #ids))
+    ScanNext()
+    return true
+end
+
+function B.ScanTick()
+    local s = B.scan
+    if not s then return end
+    if not ahOpen then return ScanFinish("Scan crates stopped: the AH was closed.") end
+    if s.state == "next" then return ScanNext() end
+    if s.state == "queued" then
+        if B.ThrottleReady() then return ScanSend() end
+        if Now() - s.sent > B.QUEUE_TIMEOUT then return ScanFinish("Scan crates stopped: the AH stayed busy. Try again in a few seconds.") end
+        return
+    end
+    if s.state == "sent" then
+        local wait = Now() - s.sent
+        if wait >= 0.3 then
+            local hasC, hasI = F("HasFullCommoditySearchResults"), F("HasFullItemSearchResults")
+            if NumCommodity(s.id) > 0 then
+                local full = true; if hasC then local ok, r = pcall(hasC, s.id); full = (not ok) or r ~= false end
+                if full or wait > 2 then return ScanGot("commodity") end
+            elseif NumItem(s.key) > 0 then
+                local full = true; if hasI then local ok, r = pcall(hasI, s.key); full = (not ok) or r ~= false end
+                if full or wait > 2 then return ScanGot("item") end
+            elseif wait > B.SCAN_EMPTY then
+                local full = false
+                if hasI then local ok, r = pcall(hasI, s.key); full = full or (ok and r == true) end
+                if hasC then local ok, r = pcall(hasC, s.id); full = full or (ok and r == true) end
+                if full then
+                    WS.RecordAvail(s.id, {}, true); depth[s.id] = nil
+                    s.done[s.id] = "ok"
+                    return ScanNext()
+                end
+            end
+        end
+        if wait > B.SEARCH_TIMEOUT then s.done[s.id] = "noanswer"; return ScanNext() end
+    end
+end
+
+------------------------------------------------------------------------
 -- events
 ------------------------------------------------------------------------
 local ev = CreateFrame("Frame")
@@ -437,9 +597,9 @@ local EVENTS = { "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "COMMODITY_SEARCH
 for _, e in ipairs(EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 B._events = ev
 ev:SetScript("OnUpdate", function(_, elapsed)
-    if B.state == "idle" or B.state == "ready" or B.state == "confirm" then acc = 0; return end
+    if (B.state == "idle" or B.state == "ready" or B.state == "confirm") and not B.scan then acc = 0; return end
     acc = acc + (tonumber(elapsed) or 0)
-    if acc >= B.POLL then acc = 0; B.Tick() end
+    if acc >= B.POLL then acc = 0; if B.scan then B.ScanTick() else B.Tick() end end
 end)
 
 local function KeyID(k) return type(k) == "table" and tonumber(k.itemID) or nil end
@@ -451,9 +611,27 @@ function B.OnEvent(event, a1, a2)
         if WS.OnAHShow then pcall(WS.OnAHShow) end
         return
     elseif event == "AUCTION_HOUSE_CLOSED" then
-        ahOpen = false; B.Reset(); return
+        ahOpen = false
+        if B.scan then ScanFinish("Scan crates stopped: the AH was closed (what was scanned is kept).") end
+        B.Reset(); return
     elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
+        if B.scan then if B.scan.state == "queued" then ScanSend() end return end
         if B.state == "queued" and cur then SendSearch() end
+        return
+    end
+    if B.scan then
+        local s = B.scan
+        if s.state == "sent" then
+            if (event == "COMMODITY_SEARCH_RESULTS_UPDATED") and tonumber(a1) == s.id then
+                local hasC = F("HasFullCommoditySearchResults"); local full = true
+                if hasC then local ok, r = pcall(hasC, s.id); full = (not ok) or r ~= false end
+                if full then ScanGot("commodity") end
+            elseif event == "ITEM_SEARCH_RESULTS_UPDATED" and KeyID(a1) == s.id then
+                local hasI = F("HasFullItemSearchResults"); local full = true
+                if hasI then local ok, r = pcall(hasI, s.key); full = (not ok) or r ~= false end
+                if full then ScanGot("item") end
+            end
+        end
         return
     end
     if not cur then return end

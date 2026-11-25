@@ -2,7 +2,7 @@
 ## Title: Waylaid Shopper
 ## Notes: Ranks every Waylaid Crate by the cheapest way to fill it from Auctionator's scan prices, builds one shopping list, and walks it at the Auction House with a Buy Next button (one click per purchase, price caps and a budget).
 ## Author: Demnock
-## Version: 0.2.4
+## Version: 0.2.5
 ## OptionalDeps: Auctionator, AltStash
 ## IconTexture: Interface\Icons\INV_Crate_02
 ## SavedVariables: WaylaidShopperDB

@@ -136,7 +136,7 @@ local function ReadMoney(t, what)
 end
 WS._ReadMoney = ReadMoney
 
-local CRATE_COLS = { { "sel", 34, "RIGHT" }, { "name", 190 }, { "lvl", 28, "RIGHT" }, { "fill", 166 }, { "cost", 82, "RIGHT" }, { "favor", 34, "RIGHT" }, { "per", 62, "RIGHT" } }
+local CRATE_COLS = { { "sel", 34, "RIGHT" }, { "name", 190 }, { "lvl", 28, "RIGHT" }, { "fill", 126 }, { "cost", 82, "RIGHT" }, { "favor", 34, "RIGHT" }, { "per", 62, "RIGHT" }, { "ah", 40, "RIGHT" } }
 local LIST_COLS = { { "name", 190 }, { "need", 40, "RIGHT" }, { "left", 40, "RIGHT" }, { "unit", 86, "RIGHT" }, { "total", 86, "RIGHT" }, { "cap", 140 } }
 
 local function GetRow(i)
@@ -151,7 +151,7 @@ local function GetRow(i)
     hl:SetColorTexture(1, 1, 1, (i % 2 == 0) and 0.03 or 0)
     r.bg = hl
     r.fs = {}
-    for k = 1, 7 do
+    for k = 1, 8 do
         local fs = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetHeight(ROW_H)
         fs:SetWordWrap(false)
@@ -178,7 +178,7 @@ end
 
 local function Layout(r, cols)
     local x = 4
-    for k = 1, 7 do
+    for k = 1, 8 do
         local fs, c = r.fs[k], cols[k]
         fs:ClearAllPoints()
         if c then
@@ -194,7 +194,7 @@ end
 
 local function HeaderLayout(cols, labels)
     local x = PAD + 6 + 4
-    for k = 1, 7 do
+    for k = 1, 8 do
         local fs = ui.hdr[k]
         local c = cols[k]
         fs:ClearAllPoints()
@@ -229,8 +229,20 @@ local function CrateTooltip(self)
         GameTooltip:AddDoubleLine(left, right, 1, 1, 1, 1, 1, 1)
     end
     if e.held > 0 then GameTooltip:AddLine("You hold " .. e.held .. " of this crate.", 0.5, 1, 0.5) end
+    do
+        local q, age, stale = WS.AvailQty(e.crate.id)
+        if q then
+            local rec = WS.Avail(e.crate.id)
+            local cheapest = rec and rec.rows and rec.rows[1] and rec.rows[1].unit
+            GameTooltip:AddLine(string.format("AH: %d empty crate(s) listed%s, %s%s", q, cheapest and (", cheapest " .. P.Money(math.floor(cheapest + 0.5))) or "",
+                WS.AgeText(age), stale and " (old: Scan crates again)" or ""), stale and 0.7 or 0.5, stale and 0.7 or 1, stale and 0.5 or 0.5, true)
+        else
+            GameTooltip:AddLine("AH: quantity unknown (Scan crates at the Auction House).", 0.6, 0.6, 0.6, true)
+        end
+    end
     if e.fill and e.fill.crateBuy == 1 then
-        if e.unavailable then GameTooltip:AddLine("You hold none and the empty crate has no AH price: not picked automatically.", 1, 0.5, 0.25, true)
+        if e.crateSoldOut then GameTooltip:AddLine("You hold none and none (or no more) are listed on the AH: not picked automatically.", 1, 0.5, 0.25, true)
+        elseif e.unavailable then GameTooltip:AddLine("You hold none and the empty crate has no AH price: not picked automatically.", 1, 0.5, 0.25, true)
         else GameTooltip:AddDoubleLine("+ empty crate (AH)", P.Money(e.crateCost), 1, 1, 1, 1, 1, 1) end
     end
     GameTooltip:AddLine("Left-click: select one more. Right-click: one less. Shift-click: clear.", 0.6, 0.6, 0.6, true)
@@ -238,10 +250,19 @@ local function CrateTooltip(self)
     GameTooltip:Show()
 end
 
+-- "AH" column: empty crates listed (from Buy Next searches / Scan crates); ? = not searched yet, grey = old
+local function AHText(id)
+    local q, age, stale = WS.AvailQty(id)
+    if not q then return "|cff666666?|r" end
+    if q == 0 then return stale and "|cff996666" .. "0|r" or "|cffff40400|r" end
+    return (stale and "|cff999999" or "|cffffffff") .. q .. "|r"
+end
+WS._AHText = AHText
+
 local function RefreshCrates()
     local P = WS.Prices
     ui.empty:Hide()
-    HeaderLayout(CRATE_COLS, { "Sel", "Crate", "Lv", "Cheapest fill", "Cost", "Favor", "Per favor" })
+    HeaderLayout(CRATE_COLS, { "Sel", "Crate", "Lv", "Cheapest fill", "Cost", "Favor", "Per favor", "AH" })
     local list = WS.Rank()
     for i, e in ipairs(list) do
         local r = GetRow(i)
@@ -255,7 +276,8 @@ local function RefreshCrates()
         r.fs[3]:SetText(tostring(c.level))
         if e.best then
             r.fs[4]:SetText(string.format("%dx %s", e.best.count, e.best.name) .. (e.best.use > 0 and " |cff88ff88*|r" or ""))
-            if e.unavailable then r.fs[5]:SetText("|cffff8040no crate|r")
+            if e.crateSoldOut then r.fs[5]:SetText("|cffff8040none on AH|r")
+            elseif e.unavailable then r.fs[5]:SetText("|cffff8040no crate|r")
             else r.fs[5]:SetText(P.Money(e.cost) .. (e.best.stale and "|cff888888*|r" or "") .. ((e.crateBuy == 1) and "|cffaaaaaa+c|r" or "")) end
             r.fs[7]:SetText(e.over and ("|cffff4040" .. P.Format(math.floor(e.perFavor + 0.5)) .. "|r") or P.Money(math.floor(e.perFavor + 0.5)))
         else
@@ -264,6 +286,7 @@ local function RefreshCrates()
             r.fs[7]:SetText("")
         end
         r.fs[6]:SetText(tostring(c.favor) .. (c.favorEstimated and "|cff888888~|r" or ""))
+        r.fs[8]:SetText(AHText(c.id))
         r:SetScript("OnClick", function(_, button)
             local cur = WS.db.sel[c.id] or 0
             if IsShiftKeyDown and IsShiftKeyDown() then WS.SetSel(c.id, 0)
@@ -307,7 +330,7 @@ local function RefreshList()
         local cur = WS.Buyer and WS.Buyer.Current()
         local mark = (cur and cur.id == d.id) and "|cffffd100> |r" or ""
         local nameColor = d.left == 0 and "|cff40ff40" or (d.skip and "|cff888888" or "|cffffffff")
-        r.fs[1]:SetText(mark .. nameColor .. (d.isCrate and (d.label or d.name) or d.name) .. "|r" .. (d.skip and " |cff888888(skipped)|r" or ""))
+        r.fs[1]:SetText(mark .. nameColor .. (d.isCrate and (d.label or d.name) or d.name) .. "|r" .. (d.isCrate and (" |cffaaaaaa(AH " .. AHText(d.id) .. "|cffaaaaaa)|r") or "") .. (d.skip and " |cff888888(skipped)|r" or ""))
         r.fs[2]:SetText(tostring(d.need))
         r.fs[3]:SetText(d.left == 0 and "|cff40ff40done|r" or ("|cffffff00" .. d.left .. "|r"))
         r.fs[4]:SetText(d.unit and (P.Money(d.unit) .. (d.stale and "|cff888888*|r" or "")) or "|cffff4040no price|r")
@@ -353,6 +376,12 @@ local function RefreshList()
     if L and L.overLimit and #L.overLimit > 0 then warn[#warn + 1] = "Left out (over per-Favor limit): " .. table.concat(L.overLimit, ", ") end
     if L and L.noPrice and #L.noPrice > 0 then warn[#warn + 1] = "No prices: " .. table.concat(L.noPrice, ", ") end
     if L and L.crateNoPrice and #L.crateNoPrice > 0 then warn[#warn + 1] = "Empty crate without AH price (set a cap): " .. table.concat(L.crateNoPrice, ", ") end
+    if L then
+        for _, so in ipairs(L.soldOut or {}) do warn[#warn + 1] = string.format("%s: only %d on AH, %d fill(s) left out", WS.CrateLabel(WS.byId[so.id]), so.listed or 0, so.n) end
+        local unknown, old = WS.CrateAvailNotes(L)
+        if #unknown > 0 then warn[#warn + 1] = "AH qty unknown (Scan crates): " .. table.concat(unknown, ", ") end
+        if #old > 0 then warn[#warn + 1] = "AH qty old: " .. table.concat(old, ", ") end
+    end
     ui.warn:SetText(#warn > 0 and ("|cffff8040" .. table.concat(warn, "   "):gsub("Waylaid Crate: ", "") .. "|r") or "")
     ui.totalFS:SetText("Left to buy: " .. P.Money(total) .. (missing > 0 and (" |cffff4040+" .. missing .. " unpriced|r") or "") ..
         "   Spent: " .. P.Money(run.spent or 0) ..
@@ -364,6 +393,9 @@ local function RefreshList()
         local open = B.IsAHOpen()
         if ui.buyBtn.SetEnabled then ui.buyBtn:SetEnabled(open and WS.db.list ~= nil) end
         ui.status:SetText(B.status or "")
+        local L = WS.db.list
+        local need = B.short ~= nil or (L and L.soldOut and #L.soldOut > 0) or false
+        if ui.replanBtn.SetShown then ui.replanBtn:SetShown(need and true or false) end
     end
 end
 
@@ -532,7 +564,7 @@ function WS.InitUI()
     ui.cBudgetBox:SetPoint("LEFT", cbl, "RIGHT", 8, 0)
 
     ui.hdr = {}
-    for k = 1, 7 do
+    for k = 1, 8 do
         local fs = win:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         ui.hdr[k] = fs
     end
@@ -599,6 +631,11 @@ function WS.InitUI()
     Tip(build, "Build list", { "Each selected crate takes its cheapest fill (after what you already have) and the materials are added up into one shopping list.", "Starts a new buying run." })
     ui.selInfo = C(win:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"))
     ui.selInfo:SetPoint("BOTTOMLEFT", PAD, 42)
+    if ui.selInfo.SetWidth then ui.selInfo:SetWidth(W - 2 * PAD - 100); ui.selInfo:SetJustifyH("LEFT") end
+    ui.scanBtn = C(Btn(win, "Scan crates", 90, function() WS.Buyer.ScanCrates(IsShiftKeyDown and IsShiftKeyDown()) end))
+    ui.scanBtn:SetPoint("BOTTOMRIGHT", -PAD, 36)
+    Tip(ui.scanBtn, "Scan crates (at the AH)", { "Searches each empty crate (the list's, the selected ones and every crate passing the filters; Shift-click: all 30) and records how many are listed and at what prices.",
+        "Auctionator only keeps one price, not the quantity. With this, Best value / Fill budget / Cheapest / Build list never plan more crates than are for sale and price each one from the real listings. The AH column shows the count (? = not scanned, grey = older than 30 min)." })
     local help = C(win:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"))
     help:SetPoint("BOTTOMLEFT", PAD, 14)
     help:SetWidth(W - 2 * PAD)
@@ -627,7 +664,11 @@ function WS.InitUI()
     Tip(ui.budgetBox, "Budget", { "Total gold for this buying run (e.g. 50g). Buy Next never goes past it. Empty = no budget." })
     ui.status = Lo(win:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"))
     ui.status:SetPoint("BOTTOMLEFT", PAD, 44)
-    ui.status:SetWidth(W - 2 * PAD)
+    ui.status:SetWidth(W - 2 * PAD - 80)
+    ui.replanBtn = Lo(Btn(win, "Replan", 72, Guarded(function() WS.Slash("replan") end)))
+    ui.replanBtn:SetPoint("BOTTOMRIGHT", -PAD, 38)
+    Tip(ui.replanBtn, "Replan", { "Rebuild the list with what the AH has: crates that are not listed (or not enough) drop out and, if the list came from Best value / Fill budget / Cheapest, that pick runs again so the money goes to the next best fills.",
+        "What you bought this run (in bags or still in the mail) counts as yours; spent gold stays on the budget." })
     ui.status:SetJustifyH("LEFT")
     ui.buyBtn = Lo(Btn(win, "Search", 150, Guarded(function() WS.Buyer.Click() end)))
     ui.buyBtn:SetPoint("BOTTOMLEFT", PAD, 12)
@@ -643,7 +684,7 @@ function WS.InitUI()
     local chk = Lo(Btn(win, "Bags check", 85, function() WS.Check.Run(true) end))
     chk:SetPoint("LEFT", txt, "RIGHT", 4, 0)
     Tip(chk, "Bags check", { "Is everything to fill your planned crates (empty crates + one bundle each) in your BAGS? Bank and alts do not count; it tells you what to withdraw.",
-        "Runs by itself when you close the AH, bank or mailbox and when you leave a city / inn (/wl alert on|off)." })
+        "Runs only when you click it (or type /wl check)." })
     local rst = Lo(Btn(win, "Reset run", 80, function() WS.ResetRun(); WS.RefreshUI() end))
     rst:SetPoint("BOTTOMRIGHT", -PAD, 12)
     Tip(rst, "Reset run", { "Clears spent gold, bought counts and skips for this list." })

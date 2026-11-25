@@ -3,7 +3,7 @@
 local ADDON, WS = ...
 WS = WS or {}
 _G.WaylaidShopper = WS
-WS.version = "0.2.4"
+WS.version = "0.2.5"
 WS.CALLER = "WaylaidShopper"
 WS.LIST_NAME = "Waylaid Shopper"
 
@@ -21,9 +21,8 @@ local DEFAULT_SETTINGS = {
     category = "all",
     sort = "favor",       -- "favor" (cost per Merchant's Favor, default) or "cost"
     maxPer = 0,           -- max cost per Merchant's Favor in copper (0 = no limit)
-    maxRepeat = 5,
-    buyCrates = true,
-    alert = true,         -- Bags check runs by itself when you close the AH / bank / mailbox or leave a rested area     -- add the empty Waylaid Crates you do not hold to the list (and count their price)        -- Best value / Fill budget: max fills of the same crate (when "Held crates" is off)
+    maxRepeat = 5,        -- Best value / Fill budget: max fills of the same crate (when "Held crates" is off)
+    buyCrates = true,     -- add the empty Waylaid Crates you do not hold to the list (and count their price)
     hideOver = false,     -- hide crates over the per-Favor limit (otherwise they are shown in red)
 }
 
@@ -42,6 +41,7 @@ function WS.InitDB()
     db.sel = type(db.sel) == "table" and db.sel or {}       -- crateID -> count selected
     db.caps = type(db.caps) == "table" and db.caps or {}    -- itemID -> copper (user-set max unit price)
     db.budget = tonumber(db.budget) or 0                     -- copper, 0 = no budget
+    db.avail = type(db.avail) == "table" and db.avail or {}  -- itemID -> { t = time(), qty, rows = {{unit, qty}}, full } AH listings seen
     db.run = type(db.run) == "table" and db.run or {}
     db.run.spent = tonumber(db.run.spent) or 0
     db.run.bought = type(db.run.bought) == "table" and db.run.bought or {}
@@ -104,12 +104,52 @@ end
 ------------------------------------------------------------------------
 -- pricing a crate
 ------------------------------------------------------------------------
+------------------------------------------------------------------------
+-- AH availability (how many are listed). Auctionator stores prices only, so the add-on records what its own searches
+-- saw (Buy Next and Scan crates), with the time. Fresh for AVAIL_FRESH, used (marked old) up to AVAIL_MAX.
+------------------------------------------------------------------------
+WS.AVAIL_FRESH = 1800
+WS.AVAIL_MAX = 6 * 3600
+local function WallNow() return (time and time()) or 0 end
+-- rec, age (seconds), stale  (nil when nothing recorded or older than AVAIL_MAX)
+function WS.Avail(id)
+    local r = WS.db and WS.db.avail and WS.db.avail[id]
+    if type(r) ~= "table" or not r.t then return nil end
+    local age = math.max(0, WallNow() - r.t)
+    if age > WS.AVAIL_MAX then return nil end
+    return r, age, age > WS.AVAIL_FRESH
+end
+function WS.RecordAvail(id, rows, full)
+    if not (WS.db and WS.db.avail) then return end
+    local keep, qty = {}, 0
+    for i, r in ipairs(rows or {}) do
+        qty = qty + (r.qty or 0)
+        if i <= 40 then keep[#keep + 1] = { unit = r.unit, qty = r.qty } end
+    end
+    WS.db.avail[id] = { t = WallNow(), qty = qty, rows = keep, full = (full ~= false) and #(rows or {}) <= 40 }
+end
+function WS.AgeText(sec)
+    sec = math.floor(sec or 0)
+    if sec < 90 then return "just now" end
+    if sec < 5400 then return math.floor(sec / 60 + 0.5) .. " min ago" end
+    return string.format("%.1f h ago", sec / 3600)
+end
+
 -- cost of buying qty more units of an item when `already` units are already planned:
--- walks the live AH listings the Buyer saw (cheapest first) when it has them, so the 2nd, 3rd... fill pays the
--- next, dearer listings; otherwise Auctionator's single scan price, flat. Returns cost, "ah" | "scan", beyondDepth.
+-- walks the AH listings (cheapest first) seen by the Buyer or Scan crates, so the 2nd, 3rd... unit pays the next,
+-- dearer listing; otherwise Auctionator's single scan price, flat.
+-- Returns cost, "ah" | "scan", beyondDepth. When the listings are complete (not cut off) and fewer than needed are
+-- left, returns nil, "ah", true, "soldout" (that many cannot be bought right now).
 function WS.DepthCost(id, already, qty, unit)
     local rows = WS.Buyer and WS.Buyer.Depth and WS.Buyer.Depth(id)
+    local full = false
+    local rec = WS.Avail(id)
+    if rec then
+        if not rows then rows = rec.rows end
+        full = rec.full and true or false
+    end
     if not rows or #rows == 0 then
+        if rec and full then return nil, "ah", true, "soldout" end     -- searched: none listed
         if not unit then return nil end
         return unit * qty, "scan", false
     end
@@ -126,8 +166,18 @@ function WS.DepthCost(id, already, qty, unit)
         if need <= 0 then break end
     end
     local beyond = need > 0
+    if beyond and full then return nil, "ah", true, "soldout" end
     if beyond then cost = cost + need * math.max(last or 0, unit or 0) end   -- more than is listed: assume the dearest seen
     return cost, "ah", beyond
+end
+
+-- how many of an item can be bought right now per the recorded listings (nil = unknown)
+function WS.AvailQty(id)
+    local rows = WS.Buyer and WS.Buyer.Depth and WS.Buyer.Depth(id)
+    local rec, age, stale = WS.Avail(id)
+    if rows then local n = 0; for _, r in ipairs(rows) do n = n + r.qty end; return n, 0, false end
+    if rec then return rec.qty, age, stale end
+    return nil
 end
 
 -- cost of one bundle given a pool of owned items (pool may be nil = ignore owned) and, optionally, the units of each
@@ -141,8 +191,8 @@ function WS.BundleCost(b, pool, bought)
     local r = { item = b.item, name = b.name, count = b.count, use = use, buy = buy, unit = unit, age = age, stale = stale }
     if buy == 0 then r.cost = 0
     elseif bought then
-        local c, src, beyond = WS.DepthCost(b.item, bought[b.item] or 0, buy, unit)
-        if c then r.cost, r.src, r.beyond = c, src, beyond else r.missing = true end
+        local c, src, beyond, why = WS.DepthCost(b.item, bought[b.item] or 0, buy, unit)
+        if c then r.cost, r.src, r.beyond = c, src, beyond else r.missing = true; r.soldOut = (why == "soldout") end
     elseif unit then r.cost = unit * buy; r.src = "scan"
     else r.missing = true end
     return r
@@ -163,7 +213,7 @@ end
 local function Pool()
     if not WS.db.settings.useOwned then return nil end
     local pool, cache = {}, {}
-    setmetatable(pool, { __index = function(t, id) local n = WS.Owned(id); rawset(t, id, n); return n end })
+    setmetatable(pool, { __index = function(t, id) local n = WS.Owned(id) + ((WS._carry and not WS.byId[id] and WS._carry[id]) or 0); rawset(t, id, n); return n end })
     return pool
 end
 
@@ -183,7 +233,7 @@ function WS.CrateLabel(c)
     return string.format("Waylaid Crate (%s %s)", c.tier or "?", c.category or "?")
 end
 local function CratePool()
-    return setmetatable({}, { __index = function(t, id) local n = WS.HeldCrates(id); rawset(t, id, n); return n end })
+    return setmetatable({}, { __index = function(t, id) local n = WS.HeldCrates(id) + ((WS._carry and WS._carry[id]) or 0); rawset(t, id, n); return n end })
 end
 WS._CratePool = CratePool
 
@@ -197,9 +247,9 @@ function WS.FillCost(crate, pool, cpool, bought)
     if WS.db.settings.buyCrates and cpool and (cpool[crate.id] or 0) <= 0 then
         f.crateBuy = 1
         local unit = WS.Prices.Get(crate.id)
-        local c, src
-        if bought then c, src = WS.DepthCost(crate.id, bought[crate.id] or 0, 1, unit) elseif unit then c, src = unit, "scan" end
+        local c, src, _, why = WS.DepthCost(crate.id, (bought and bought[crate.id]) or 0, 1, unit)
         if c then f.crateCost = c; f.cost = b.cost + c; if src == "ah" then f.live = true end
+        elseif why == "soldout" then f.crateSoldOut = true
         else f.crateNoPrice = true end
     end
     return f
@@ -248,7 +298,9 @@ function WS.Rank(ignoreFilter)
             if f then
                 e.cost = f.cost
                 e.crateCost, e.crateBuy = f.crateCost, f.crateBuy
-                e.unavailable = f.crateNoPrice and true or false     -- you hold none and the empty crate has no AH price
+                e.crateSoldOut = f.crateSoldOut
+                -- you hold none (left) and the empty crate has no AH price, or none is listed on the AH
+                e.unavailable = (f.crateNoPrice or f.crateSoldOut) and true or false
                 e.perFavor = f.cost / math.max(1, c.favor)
                 e.over = WS.OverLimit(e.perFavor)
             end
@@ -286,6 +338,7 @@ end
 function WS.SelectCheapest(n)
     n = math.floor(tonumber(n) or 0)
     if n <= 0 then return 0 end
+    WS.db.lastPick = { mode = "cheapest", n = n }
     WS.ClearSel()
     local k = 0
     for _, e in ipairs(WS.Rank()) do
@@ -330,7 +383,7 @@ function WS.Greedy(maxFills, budget)
         for _, e in ipairs(cands) do
             if (counts[e.crate.id] or 0) < e.cap then
                 local f = WS.FillCost(e.crate, pool, cpool, bought)
-                if f and not f.crateNoPrice then     -- an empty crate you would have to buy but has no price: not picked
+                if f and not f.crateNoPrice and not f.crateSoldOut then     -- an empty crate you would have to buy but has no price / none listed: not picked
                     local per = f.cost / math.max(1, e.crate.favor)
                     if not WS.OverLimit(per) and (not budget or spent + f.cost <= budget) then
                         if not pick or per < pper or (per == pper and f.cost < pb.cost) then pick, pb, pper = e, f, per end
@@ -358,6 +411,7 @@ function WS.SelectBestValue(n)
     if n <= 0 then return 0 end
     local counts, k, cost, favor, live = WS.Greedy(n, nil)
     if k == 0 then return 0, 0, 0, false, WS.WhyNothing(nil) end
+    WS.db.lastPick = { mode = "best", n = n }
     ApplyCounts(counts)
     return k, cost, favor, live
 end
@@ -369,6 +423,7 @@ function WS.SelectFillBudget()
     if not left then return nil, "set a budget first: type it in the Budget box (e.g. 10g) or /wl fill 10g." end
     local counts, k, cost, favor, live = WS.Greedy(nil, left)
     if k == 0 then return nil, WS.WhyNothing(left) end
+    WS.db.lastPick = { mode = "fill" }
     ApplyCounts(counts)
     return k, cost, favor, live
 end
@@ -376,7 +431,7 @@ end
 -- why Greedy picked nothing: a sentence naming the crates left out and why. budget = copper left or nil.
 function WS.WhyNothing(budget)
     local P, s = WS.Prices, WS.db.settings
-    local nAll, nFilt, noMat, noCrate, over, fits = 0, 0, 0, 0, 0, 0
+    local nAll, nFilt, noMat, noCrate, over, fits, sold = 0, 0, 0, 0, 0, 0, 0
     local cheapest, cheapName
     local pool, cpool = Pool(), CratePool()
     local anyPrice = false
@@ -387,6 +442,7 @@ function WS.WhyNothing(budget)
         else
             local f = WS.FillCost(c, pool, cpool, {})
             if not f then noMat = noMat + 1
+            elseif f.crateSoldOut then sold = sold + 1
             elseif f.crateNoPrice then noCrate = noCrate + 1
             elseif WS.OverLimit(f.cost / math.max(1, c.favor)) then over = over + 1
             else
@@ -416,9 +472,10 @@ function WS.WhyNothing(budget)
         parts[#parts + 1] = string.format("%d of %d crates hidden by filters (%s)", nFilt, nAll, table.concat(why, ", "))
     end
     if noCrate > 0 then parts[#parts + 1] = string.format("%d crate(s) need an empty crate you do not hold and Auctionator has no price for it (scan / search the crates, or untick Buy crates if you get them elsewhere)", noCrate) end
+    if sold > 0 then parts[#parts + 1] = string.format("%d crate(s) need an empty crate you do not hold and none is listed on the AH (Scan crates again later)", sold) end
     if noMat > 0 then parts[#parts + 1] = string.format("%d crate(s) have no material prices (run an Auctionator scan)", noMat) end
     if over > 0 then parts[#parts + 1] = string.format("%d crate(s) cost more than your Max per Favor %s", over, P.Format(WS.MaxPer() or 0)) end
-    if fits == 0 and nFilt == 0 and noCrate == 0 and noMat == 0 and over == 0 then parts[#parts + 1] = "no crates to choose from" end
+    if fits == 0 and nFilt == 0 and noCrate == 0 and noMat == 0 and over == 0 and sold == 0 then parts[#parts + 1] = "no crates to choose from" end
     return table.concat(parts, "; ") .. "."
 end
 
@@ -457,8 +514,20 @@ end
 ------------------------------------------------------------------------
 -- Build from the selection: each selected crate (cheapest first) takes its cheapest bundle, using up owned materials
 -- as it goes, so two crates never count the same owned stack twice. Starts a fresh buying run.
-function WS.BuildList()
+-- opts.carry = { itemID = n } already bought this run but maybe still in the mailbox (Replan): counted as yours.
+-- opts.keepSpent = keep this run's spent gold (Replan).
+function WS.BuildList(opts)
+    opts = opts or {}
     local pool, cpool, bought = Pool(), CratePool(), {}
+    local carry = opts.carry or {}
+    if not pool and next(carry) then pool = setmetatable({}, { __index = function() return 0 end }) end
+    for id, n in pairs(carry) do
+        if n > 0 then
+            if WS.byId[id] then cpool[id] = (cpool[id] or 0) + n
+            elseif pool then pool[id] = (pool[id] or 0) + n end
+        end
+    end
+    local soldOut, soldOrder = {}, {}
     local items, picks, noPrice, overLimit, crateNoPrice = {}, {}, {}, {}, {}
     local order, crateOrder = {}, {}
     local crateHeld, crateBuyN = 0, 0
@@ -491,6 +560,10 @@ function WS.BuildList()
                 -- no material price: still list the empty crate you need, the materials cannot be priced
                 noPrice[#noPrice + 1] = e.crate.name
                 AddCrate(e.crate)
+            elseif f.crateSoldOut then
+                -- no more of this empty crate on the AH (per the last search / Scan crates): that fill is left out
+                if not soldOut[e.crate.id] then soldOut[e.crate.id] = 0; soldOrder[#soldOrder + 1] = e.crate.id end
+                soldOut[e.crate.id] = soldOut[e.crate.id] + 1
             elseif WS.OverLimit(f.cost / math.max(1, e.crate.favor)) then
                 overLimit[#overLimit + 1] = e.crate.name
             else
@@ -509,10 +582,93 @@ function WS.BuildList()
     for i = #crateOrder, 1, -1 do table.insert(order, 1, crateOrder[i]) end
     local alts = 0
     for _, id in ipairs(crateOrder) do alts = alts + math.min(WS.AltCrates(id), items[id].need) end
+    local base = {}
+    for id in pairs(items) do base[id] = ItemCount(id) end           -- what you had when the list was built (for Replan)
+    local soldList = {}
+    for _, id in ipairs(soldOrder) do
+        local a = WS.AvailQty(id)
+        soldList[#soldList + 1] = { id = id, n = soldOut[id], listed = a or 0 }
+    end
     WS.db.list = { items = items, order = order, picks = picks, noPrice = noPrice, overLimit = overLimit, crateNoPrice = crateNoPrice,
-        crateHeld = crateHeld, crateBuy = crateBuyN, crateOnAlts = alts, built = time and time() or 0 }
+        crateHeld = crateHeld, crateBuy = crateBuyN, crateOnAlts = alts, soldOut = soldList, base = base, built = time and time() or 0 }
+    local spent, log = WS.db.run.spent, WS.db.run.log
     WS.ResetRun(true)
+    if opts.keepSpent then WS.db.run.spent, WS.db.run.log = spent or 0, log or {} end
     return WS.db.list
+end
+
+-- what this run bought that is not in your bags/bank yet (AH purchases wait in the mailbox)
+function WS.InMail()
+    local L, run = WS.db.list, WS.db.run
+    local carry = {}
+    if not L then return carry end
+    for id, n in pairs(run.bought or {}) do
+        local arrived = math.max(0, ItemCount(id) - ((L.base and L.base[id]) or 0))
+        local m = math.max(0, n - arrived)
+        if m > 0 then carry[id] = m end
+    end
+    return carry
+end
+
+-- rebuild the list with today's AH availability: the crates that sold out drop out and, when the selection came from
+-- Best value / Fill budget / Cheapest, that pick runs again so the freed money goes to the next best fills. What you
+-- already bought this run (bags or mail) counts as yours; spent gold is kept against the budget.
+function WS.Replan()
+    local carry = WS.InMail()
+    local lp = WS.db.lastPick
+    local msg
+    -- the purchases so far are yours: plan the rest only
+    local function WithCarry(fn)
+        WS._carry = carry
+        local ok, a, b, c, d, e = pcall(fn)
+        WS._carry = nil
+        if not ok then error(a) end
+        return a, b, c, d, e
+    end
+    local L = WS.db.list
+    if lp and lp.mode == "fill" then
+        local k, why = WithCarry(function() return WS.SelectFillBudget() end)
+        msg = k and string.format("replanned Fill budget: %d fill(s).", k) or ("replan: " .. tostring(why))
+    elseif lp and lp.mode == "best" then
+        local k = WithCarry(function() return WS.SelectBestValue(lp.n) end)
+        msg = string.format("replanned Best value: %d fill(s).", k or 0)
+    elseif lp and lp.mode == "cheapest" then
+        local k = WithCarry(function() return WS.SelectCheapest(lp.n) end)
+        msg = string.format("replanned Cheapest: %d crate(s).", k or 0)
+    else
+        -- hand-picked selection: trim the crates that cannot be bought
+        if L and L.soldOut then
+            for _, s in ipairs(L.soldOut) do WS.SetSel(s.id, (WS.db.sel[s.id] or 0) - s.n) end
+        end
+        msg = "replanned: crates that are not listed were taken out of the selection."
+    end
+    local NL = WS.BuildList({ carry = carry, keepSpent = true })
+    if WS.Buyer and WS.Buyer.ClearShort then WS.Buyer.ClearShort() end
+    return NL, msg
+end
+
+function WS.ReportSoldOut(L)
+    for _, s in ipairs((L and L.soldOut) or {}) do
+        Print(string.format("|cffffd100%s: only %d listed on the AH; %d fill(s) left out.|r", WS.CrateLabel(WS.byId[s.id]), s.listed or 0, s.n))
+    end
+end
+-- crates on the list whose AH quantity is unknown or old
+function WS.CrateAvailNotes(L)
+    local unknown, old = {}, {}
+    for _, id in ipairs((L and L.order) or {}) do
+        local it = L.items[id]
+        if it and it.isCrate then
+            local q, age, stale = WS.AvailQty(id)
+            local nm = (WS.byId[id] and (WS.byId[id].tier .. " " .. WS.byId[id].category)) or tostring(id)
+            if not q then unknown[#unknown + 1] = nm elseif stale then old[#old + 1] = nm .. " (" .. WS.AgeText(age) .. ")" end
+        end
+    end
+    return unknown, old
+end
+function WS.ReportAvailAge(L)
+    local unknown, old = WS.CrateAvailNotes(L)
+    if #unknown > 0 then Print("AH quantity unknown for: " .. table.concat(unknown, ", ") .. ". Click Scan crates at the AH (/wl scancrates) to see how many are listed.") end
+    if #old > 0 then Print("AH quantity is old for: " .. table.concat(old, ", ") .. ". Scan crates again before buying.") end
 end
 
 function WS.ResetRun(quiet)
@@ -660,7 +816,8 @@ end
 local HELP = {
     "/wl - open / close the window",
     "/wl cheapest <N> - select the N cheapest crates   /wl best <N> - the N best value (cost per Favor)   /wl owned - the crates you hold",
-    "/wl check - Bags check: is everything to fill your planned crates in your BAGS?   /wl alert on|off - run it by itself (default on)",
+    "/wl scancrates [all] - at the AH: search every relevant empty crate and record how many are listed (caps crate buying)   /wl replan - rebuild the list with what is listed",
+    "/wl check - Bags check: is everything to fill your planned crates in your BAGS?",
     "/wl buycrates on|off - add the empty Waylaid Crates you do not hold to the list and count their price (default on)",
     "/wl maxrepeat <N> - Best value / Fill budget may fill the same crate up to N times (default 5; Held crates = what you hold)",
     "/wl fill [money] - best-value crates until the budget is used (e.g. /wl fill 10g sets the budget too)   /wl maxper <money|off> - max cost per Merchant's Favor, e.g. /wl maxper 50s",
@@ -709,10 +866,19 @@ function WS.Slash(msg)
         if not k then Print("|cffff8040" .. cost .. "|r"); WS.selNote = cost
         else Print(WS.SelectionText(k, cost, favor, live)); WS.selNote = nil end
         if WS.Show then WS.Show("crates") end
+    elseif cmd == "scancrates" or cmd == "scan" then
+        if WS.Buyer then WS.Buyer.ScanCrates(rest:lower() == "all") end
+    elseif cmd == "replan" then
+        if not WS.db.list then Print("no shopping list to replan (Build list first).")
+        else
+            local L, msg = WS.Replan()
+            Print(msg .. string.format(" New list: %d item(s) for %d crate(s); spent so far kept (%s).", #L.order, #L.picks, P.Format(WS.db.run.spent or 0)))
+            WS.ReportSoldOut(L)
+            if WS.Show then WS.Show("list") end
+        end
     elseif cmd == "check" then if WS.Check then WS.Check.Run(true) end
     elseif cmd == "alert" then
-        WS.db.settings.alert = OnOff(rest, WS.db.settings.alert)
-        Print("automatic bags check (closing AH / bank / mail, leaving a city): " .. (WS.db.settings.alert and "on" or "off"))
+        Print("the Bags check no longer runs by itself; click Bags check or type /wl check.")
     elseif cmd == "buycrates" then
         WS.db.settings.buyCrates = OnOff(rest, WS.db.settings.buyCrates)
         Print("buy missing crates: " .. (WS.db.settings.buyCrates and "on (empty crates you do not hold are added to the list and priced in)" or "off (assumes you have the crates)"))
@@ -755,6 +921,8 @@ function WS.Slash(msg)
         end
         if #L.noPrice > 0 then Print("no price for any bundle of: " .. table.concat(L.noPrice, ", ") .. " (scan the AH with Auctionator).") end
         if #L.overLimit > 0 then Print("left out (over your per-Favor limit): " .. table.concat(L.overLimit, ", ") .. ".") end
+        WS.ReportSoldOut(L)
+        WS.ReportAvailAge(L)
         if #L.crateNoPrice > 0 then Print("no AH price for these empty crates (Buy Next needs a cap: /wl cap <crate> 1g): " .. table.concat(L.crateNoPrice, ", ") .. ".") end
         if WS.Show then WS.Show("list") end
     elseif cmd == "budget" then
