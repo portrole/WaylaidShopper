@@ -1,0 +1,16 @@
+Waylaid Shopper Copyright (C) 2026 Demnock
+
+Waylaid Shopper is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, version 3 (GPL-3.0). It is distributed WITHOUT ANY
+WARRANTY. See the LICENSE file for the full license text.
+
+Data credits:
+- The Waylaid Crate list (crates, fill bundles, counts, levels, quality) in
+  CrateData.lua was compiled from ForeverDiff (https://foreverdiff.com/waylaid-crates/),
+  which reads it from the WoW Forever client (build 1.60.1.71091, 2026-11-25).
+- Material item IDs were cross-checked against item names in QuestieDB
+  (https://github.com/Questie/QuestieDB) 1.1.6, Forever flavor, commit 4377c981ac.
+- Merchant's Favor values are community reports (zockify.com, games.gg).
+World of Warcraft is a trademark of Blizzard Entertainment, Inc. This add-on is
+not affiliated with or endorsed by Blizzard, Auctionator, ForeverDiff or Questie.

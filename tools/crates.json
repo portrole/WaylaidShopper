@@ -1,0 +1,752 @@
+[
+ {
+  "id": 248685,
+  "name": "Waylaid Crate: Apprentice Curiosities",
+  "category": "Curiosities",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 10940,
+    "name": "Strange Dust",
+    "count": 20
+   },
+   {
+    "item": 10939,
+    "name": "Greater Magic Essence",
+    "count": 4
+   },
+   {
+    "item": 10978,
+    "name": "Small Glimmering Shard",
+    "count": 6
+   },
+   {
+    "item": 11084,
+    "name": "Large Glimmering Shard",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248702,
+  "name": "Waylaid Crate: Apprentice Fabrics",
+  "category": "Fabrics",
+  "level": 10,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 4231,
+    "name": "Cured Light Hide",
+    "count": 2
+   },
+   {
+    "item": 2996,
+    "name": "Bolt of Linen Cloth",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248682,
+  "name": "Waylaid Crate: Apprentice Herbs",
+  "category": "Herbs",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 2447,
+    "name": "Peacebloom",
+    "count": 20
+   },
+   {
+    "item": 765,
+    "name": "Silverleaf",
+    "count": 20
+   },
+   {
+    "item": 2449,
+    "name": "Earthroot",
+    "count": 10
+   },
+   {
+    "item": 785,
+    "name": "Mageroyal",
+    "count": 10
+   },
+   {
+    "item": 2450,
+    "name": "Briarthorn",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248703,
+  "name": "Waylaid Crate: Apprentice Ingots",
+  "category": "Ingots",
+  "level": 10,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 2840,
+    "name": "Copper Bar",
+    "count": 20
+   },
+   {
+    "item": 3576,
+    "name": "Tin Bar",
+    "count": 20
+   },
+   {
+    "item": 2841,
+    "name": "Bronze Bar",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248683,
+  "name": "Waylaid Crate: Apprentice Ore",
+  "category": "Ore",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 2770,
+    "name": "Copper Ore",
+    "count": 20
+   },
+   {
+    "item": 2771,
+    "name": "Tin Ore",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248704,
+  "name": "Waylaid Crate: Apprentice Parts",
+  "category": "Parts",
+  "level": 10,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 4359,
+    "name": "Handful of Copper Bolts",
+    "count": 16
+   },
+   {
+    "item": 4361,
+    "name": "Copper Tube",
+    "count": 16
+   },
+   {
+    "item": 4363,
+    "name": "Copper Modulator",
+    "count": 4
+   }
+  ]
+ },
+ {
+  "id": 248684,
+  "name": "Waylaid Crate: Apprentice Textiles",
+  "category": "Textiles",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 2589,
+    "name": "Linen Cloth",
+    "count": 40
+   },
+   {
+    "item": 2318,
+    "name": "Light Leather",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248689,
+  "name": "Waylaid Crate: Journeyman Curiosities",
+  "category": "Curiosities",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 11083,
+    "name": "Soul Dust",
+    "count": 20
+   },
+   {
+    "item": 11082,
+    "name": "Greater Astral Essence",
+    "count": 4
+   },
+   {
+    "item": 11138,
+    "name": "Small Glowing Shard",
+    "count": 6
+   },
+   {
+    "item": 11139,
+    "name": "Large Glowing Shard",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248705,
+  "name": "Waylaid Crate: Journeyman Fabrics",
+  "category": "Fabrics",
+  "level": 10,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 2997,
+    "name": "Bolt of Woolen Cloth",
+    "count": 6
+   },
+   {
+    "item": 4305,
+    "name": "Bolt of Silk Cloth",
+    "count": 10
+   },
+   {
+    "item": 4233,
+    "name": "Cured Medium Hide",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248686,
+  "name": "Waylaid Crate: Journeyman Herbs",
+  "category": "Herbs",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 3820,
+    "name": "Stranglekelp",
+    "count": 10
+   },
+   {
+    "item": 2453,
+    "name": "Bruiseweed",
+    "count": 10
+   },
+   {
+    "item": 3355,
+    "name": "Wild Steelbloom",
+    "count": 10
+   },
+   {
+    "item": 3369,
+    "name": "Grave Moss",
+    "count": 10
+   },
+   {
+    "item": 3356,
+    "name": "Kingsblood",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248706,
+  "name": "Waylaid Crate: Journeyman Ingots",
+  "category": "Ingots",
+  "level": 10,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 2842,
+    "name": "Silver Bar",
+    "count": 10
+   },
+   {
+    "item": 3575,
+    "name": "Iron Bar",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248687,
+  "name": "Waylaid Crate: Journeyman Ore",
+  "category": "Ore",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 2775,
+    "name": "Silver Ore",
+    "count": 10
+   },
+   {
+    "item": 2772,
+    "name": "Iron Ore",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248707,
+  "name": "Waylaid Crate: Journeyman Parts",
+  "category": "Parts",
+  "level": 10,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 4371,
+    "name": "Bronze Tube",
+    "count": 8
+   },
+   {
+    "item": 4375,
+    "name": "Whirring Bronze Gizmo",
+    "count": 7
+   },
+   {
+    "item": 4382,
+    "name": "Bronze Framework",
+    "count": 4
+   },
+   {
+    "item": null,
+    "name": "Gold Power Core",
+    "count": 45
+   }
+  ]
+ },
+ {
+  "id": 248688,
+  "name": "Waylaid Crate: Journeyman Textiles",
+  "category": "Textiles",
+  "level": 10,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 2592,
+    "name": "Wool Cloth",
+    "count": 20
+   },
+   {
+    "item": 4306,
+    "name": "Silk Cloth",
+    "count": 40
+   },
+   {
+    "item": 2319,
+    "name": "Medium Leather",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248690,
+  "name": "Waylaid Crate: Earthly Expert Herbs",
+  "category": "Herbs",
+  "level": 20,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 3357,
+    "name": "Liferoot",
+    "count": 20
+   },
+   {
+    "item": 3818,
+    "name": "Fadeleaf",
+    "count": 10
+   },
+   {
+    "item": 3821,
+    "name": "Goldthorn",
+    "count": 10
+   },
+   {
+    "item": 3358,
+    "name": "Khadgar's Whisker",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248694,
+  "name": "Waylaid Crate: Expert Curiosities",
+  "category": "Curiosities",
+  "level": 20,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 11137,
+    "name": "Vision Dust",
+    "count": 20
+   },
+   {
+    "item": 11135,
+    "name": "Greater Mystic Essence",
+    "count": 4
+   },
+   {
+    "item": 11177,
+    "name": "Small Radiant Shard",
+    "count": 6
+   },
+   {
+    "item": 11178,
+    "name": "Large Radiant Shard",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248708,
+  "name": "Waylaid Crate: Expert Fabrics",
+  "category": "Fabrics",
+  "level": 20,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 4339,
+    "name": "Bolt of Mageweave",
+    "count": 8
+   },
+   {
+    "item": 4236,
+    "name": "Cured Heavy Hide",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248709,
+  "name": "Waylaid Crate: Expert Ingots",
+  "category": "Ingots",
+  "level": 20,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 3860,
+    "name": "Mithril Bar",
+    "count": 20
+   },
+   {
+    "item": 3859,
+    "name": "Steel Bar",
+    "count": 15
+   },
+   {
+    "item": 3577,
+    "name": "Gold Bar",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248692,
+  "name": "Waylaid Crate: Expert Ore",
+  "category": "Ore",
+  "level": 20,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 2776,
+    "name": "Gold Ore",
+    "count": 10
+   },
+   {
+    "item": 3858,
+    "name": "Mithril Ore",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248710,
+  "name": "Waylaid Crate: Expert Parts",
+  "category": "Parts",
+  "level": 20,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 4387,
+    "name": "Iron Strut",
+    "count": 8
+   },
+   {
+    "item": 10559,
+    "name": "Mithril Tube",
+    "count": 5
+   },
+   {
+    "item": 10560,
+    "name": "Unstable Trigger",
+    "count": 12
+   },
+   {
+    "item": 10561,
+    "name": "Mithril Casing",
+    "count": 5
+   }
+  ]
+ },
+ {
+  "id": 248693,
+  "name": "Waylaid Crate: Expert Textiles",
+  "category": "Textiles",
+  "level": 20,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 4338,
+    "name": "Mageweave Cloth",
+    "count": 40
+   },
+   {
+    "item": 4234,
+    "name": "Heavy Leather",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248691,
+  "name": "Waylaid Crate: Flowering Expert Herbs",
+  "category": "Herbs",
+  "level": 20,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 3819,
+    "name": "Wintersbite",
+    "count": 10
+   },
+   {
+    "item": 4625,
+    "name": "Firebloom",
+    "count": 10
+   },
+   {
+    "item": 8831,
+    "name": "Purple Lotus",
+    "count": 20
+   },
+   {
+    "item": 8836,
+    "name": "Arthas' Tears",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248699,
+  "name": "Waylaid Crate: Artisan Curiosities",
+  "category": "Curiosities",
+  "level": 35,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 11176,
+    "name": "Dream Dust",
+    "count": 20
+   },
+   {
+    "item": 11175,
+    "name": "Greater Nether Essence",
+    "count": 4
+   },
+   {
+    "item": 14343,
+    "name": "Small Brilliant Shard",
+    "count": 6
+   },
+   {
+    "item": 14344,
+    "name": "Large Brilliant Shard",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248711,
+  "name": "Waylaid Crate: Artisan Fabrics",
+  "category": "Fabrics",
+  "level": 35,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 14048,
+    "name": "Bolt of Runecloth",
+    "count": 8
+   },
+   {
+    "item": 8172,
+    "name": "Cured Thick Hide",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248712,
+  "name": "Waylaid Crate: Artisan Ingots",
+  "category": "Ingots",
+  "level": 35,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 11371,
+    "name": "Dark Iron Bar",
+    "count": 2
+   },
+   {
+    "item": 6037,
+    "name": "Truesilver Bar",
+    "count": 10
+   },
+   {
+    "item": 12359,
+    "name": "Thorium Bar",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248697,
+  "name": "Waylaid Crate: Artisan Ore",
+  "category": "Ore",
+  "level": 35,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 7911,
+    "name": "Truesilver Ore",
+    "count": 10
+   },
+   {
+    "item": 10620,
+    "name": "Thorium Ore",
+    "count": 20
+   },
+   {
+    "item": null,
+    "name": "Dark Iron Ore",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248713,
+  "name": "Waylaid Crate: Artisan Parts",
+  "category": "Parts",
+  "level": 35,
+  "quality": "Uncommon",
+  "bundles": [
+   {
+    "item": 15994,
+    "name": "Thorium Widget",
+    "count": 5
+   },
+   {
+    "item": 18631,
+    "name": "Truesilver Transformer",
+    "count": 5
+   },
+   {
+    "item": 16000,
+    "name": "Thorium Tube",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "id": 248698,
+  "name": "Waylaid Crate: Artisan Textiles",
+  "category": "Textiles",
+  "level": 35,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 14047,
+    "name": "Runecloth",
+    "count": 40
+   },
+   {
+    "item": 4304,
+    "name": "Thick Leather",
+    "count": 20
+   },
+   {
+    "item": 8170,
+    "name": "Rugged Leather",
+    "count": 20
+   }
+  ]
+ },
+ {
+  "id": 248695,
+  "name": "Waylaid Crate: Earthly Artisan Herbs",
+  "category": "Herbs",
+  "level": 35,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 13464,
+    "name": "Golden Sansam",
+    "count": 10
+   },
+   {
+    "item": 8838,
+    "name": "Sungrass",
+    "count": 20
+   },
+   {
+    "item": 8839,
+    "name": "Blindweed",
+    "count": 10
+   },
+   {
+    "item": 8845,
+    "name": "Ghost Mushroom",
+    "count": 10
+   },
+   {
+    "item": 8846,
+    "name": "Gromsblood",
+    "count": 10
+   }
+  ]
+ },
+ {
+  "id": 248696,
+  "name": "Waylaid Crate: Flowering Artisan Herbs",
+  "category": "Herbs",
+  "level": 35,
+  "quality": "Common",
+  "bundles": [
+   {
+    "item": 13463,
+    "name": "Dreamfoil",
+    "count": 20
+   },
+   {
+    "item": 13465,
+    "name": "Mountain Silversage",
+    "count": 20
+   },
+   {
+    "item": 13466,
+    "name": "Plaguebloom",
+    "count": 20
+   },
+   {
+    "item": 13467,
+    "name": "Icecap",
+    "count": 20
+   }
+  ]
+ }
+]

@@ -1,0 +1,16 @@
+{
+  "releases": [
+    {
+      "name": "WaylaidShopper",
+      "version": "v0.2.4",
+      "filename": "WaylaidShopper-v0.2.4.zip",
+      "nolib": false,
+      "metadata": [
+        {
+          "flavor": "forever",
+          "interface": 16001
+        }
+      ]
+    }
+  ]
+}
